@@ -1,0 +1,3225 @@
+{
+  "contractName": "EnigmaCommon",
+  "abi": [],
+  "metadata": "{\"compiler\":{\"version\":\"0.5.8+commit.23d335f2\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"author\":\"Enigma * This library contains the common structs and enums used throughout the Enigma codebase\",\"methods\":{}},\"userdoc\":{\"methods\":{}}},\"settings\":{\"compilationTarget\":{\"/root/enigma-contract/contracts/impl/EnigmaCommon.sol\":\"EnigmaCommon\"},\"evmVersion\":\"petersburg\",\"libraries\":{},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[]},\"sources\":{\"/root/enigma-contract/contracts/impl/EnigmaCommon.sol\":{\"keccak256\":\"0x5bd9c996532891c2234021e7a827a8b997352074a0b3dec322adc52d864f14b3\",\"urls\":[\"bzzr://0b7c3170039b962271adb4d1289e3bf2287853e48720c6dd50213ed8c4f56c96\"]},\"/root/enigma-contract/contracts/utils/Bytes.sol\":{\"keccak256\":\"0xa9504cd72371444aaec522d40e02f930e9017fc59059c80b4d0b60afe6d3f151\",\"urls\":[\"bzzr://09e35d59d1fd6c478388e098f8f586d0eb3004af0e8402e5dc0c003b3d555e56\"]},\"/root/enigma-contract/contracts/utils/Memory.sol\":{\"keccak256\":\"0xbb69933fc38ebf561a60fc4496c8d48f4aef12b5cef49bb9dd2957d8c6478ce0\",\"urls\":[\"bzzr://a4b1117bcf978aebba7df92a10df9e866cf854033bc2f4d8e426e360ba78d1fa\"]}},\"version\":1}",
+  "bytecode": "0x605a6023600b82828239805160001a607314601657fe5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea265627a7a723058208896c7800632ce3ba8eebae005d09633eebc6b67ed2b6ba36f0e99365acb121a6c6578706572696d656e74616cf50037",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600080fdfea265627a7a723058208896c7800632ce3ba8eebae005d09633eebc6b67ed2b6ba36f0e99365acb121a6c6578706572696d656e74616cf50037",
+  "sourceMap": "223:3471:6:-;;132:2:-1;166:7;155:9;146:7;137:37;255:7;249:14;246:1;241:23;235:4;232:33;222:2;;269:9;222:2;293:9;290:1;283:20;323:4;314:7;306:22;347:7;338;331:24",
+  "deployedSourceMap": "223:3471:6:-;;;;;;;;",
+  "source": "pragma solidity ^0.5.0;\npragma experimental ABIEncoderV2;\n\nimport { Bytes } from \"../utils/Bytes.sol\";\n\n/**\n * @author Enigma\n *\n * This library contains the common structs and enums used throughout the Enigma codebase\n */\nlibrary EnigmaCommon {\n    using Bytes for bytes;\n    using Bytes for uint64;\n\n    // ========================================== Structs ==========================================\n\n    struct TaskRecord {\n        address sender; // Sender of TaskRecord\n        bytes32 inputsHash; // Inputs hash of encryptedFn, encryptedArgs, and contract address/preCodeHash\n        bytes32 outputHash; // Output hash of task computation\n        uint64 gasLimit; // ENG gas limit units\n        uint64 gasPx; // ENG gas px in grains (10 ** 8) amount\n        uint blockNumber; // Block number TaskRecord was mined\n        TaskStatus status; // RecordUndefined: 0; RecordCreated: 1; ReceiptVerified: 2; ReceiptFailed: 3; ReceiptFailedETH: 4; ReceiptFailedReturn: 5\n        bytes proof; // Signature of (taskId, inStateDeltaHash, outStateDeltaHash, ethCall)\n    }\n\n    struct Worker {\n        address signer; // Enclave address\n        WorkerStatus status; // Unregistered: 0, LoggedIn: 1, LoggedOut: 2\n        bytes report; // Decided to store this as one  RLP encoded attribute for easier external storage in the future\n        uint256 balance; // ENG balance of worker\n        WorkerLog[] workerLogs; // Logs containing info regarding updates in worker status\n    }\n\n    /**\n    * The data representation of the worker parameters used as input for\n    * the worker selection algorithm\n    */\n    struct WorkersParams {\n        uint firstBlockNumber;\n        address[] workers;\n        uint[] stakes;\n        uint seed;\n    }\n\n    struct WorkerLog {\n        WorkerLogType workerEventType;\n        uint blockNumber;\n        uint balance;\n    }\n\n    struct SecretContract {\n        address owner; // Owner who deployed secret contract\n        bytes32 preCodeHash; // Predeployed bytecode hash\n        bytes32 codeHash; // Deployed bytecode hash\n        bytes32[] stateDeltaHashes; // Array of state delta hashes\n        SecretContractStatus status; // Undefined: 0, Deployed: 1\n        // TODO: consider keeping an index of taskIds\n    }\n\n    // ========================================== Enums ==========================================\n\n    enum TaskStatus {RecordUndefined, RecordCreated, ReceiptVerified, ReceiptFailed, ReceiptFailedETH,\n        ReceiptFailedReturn}\n\n    enum WorkerStatus {Unregistered, LoggedIn, LoggedOut}\n\n    enum SecretContractStatus {Undefined, Deployed}\n\n    enum WorkerLogType {Undefined, LogIn, LogOut, Compound}\n\n    // ========================================== Shared Functions ==========================================\n\n    /**\n    * Append the length of a variable and the variable to an existing bytes buffer\n    *\n    * @param _message Bytes buffer being appended to\n    * @param _var Bytes representation of value that needs to be concatenated to existing buffer\n    * @return New bytes buffer\n    */\n    function appendMessage(bytes memory _message, bytes memory _var)\n    internal\n    pure\n    returns (bytes memory)\n    {\n        return (_message.concat(uint64(_var.length).toBytesFromUint64())).concat(_var);\n    }\n\n    /**\n    * Append the length of an array to an existing bytes buffer\n    *\n    * @param _message Bytes buffer being appended to\n    * @param _arraylength Length of array\n    * @return New bytes buffer\n    */\n    function appendMessageArrayLength(uint256 _arraylength, bytes memory _message)\n    internal\n    pure\n    returns (bytes memory)\n    {\n        return _message.concat(uint64(_arraylength).toBytesFromUint64());\n    }\n}\n",
+  "sourcePath": "/root/enigma-contract/contracts/impl/EnigmaCommon.sol",
+  "ast": {
+    "absolutePath": "/root/enigma-contract/contracts/impl/EnigmaCommon.sol",
+    "exportedSymbols": {
+      "EnigmaCommon": [
+        2185
+      ]
+    },
+    "id": 2186,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 2054,
+        "literals": [
+          "solidity",
+          "^",
+          "0.5",
+          ".0"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "0:23:6"
+      },
+      {
+        "id": 2055,
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "24:33:6"
+      },
+      {
+        "absolutePath": "/root/enigma-contract/contracts/utils/Bytes.sol",
+        "file": "../utils/Bytes.sol",
+        "id": 2057,
+        "nodeType": "ImportDirective",
+        "scope": 2186,
+        "sourceUnit": 11117,
+        "src": "59:43:6",
+        "symbolAliases": [
+          {
+            "foreign": 2056,
+            "local": null
+          }
+        ],
+        "unitAlias": ""
+      },
+      {
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "library",
+        "documentation": "@author Enigma\n * This library contains the common structs and enums used throughout the Enigma codebase",
+        "fullyImplemented": true,
+        "id": 2185,
+        "linearizedBaseContracts": [
+          2185
+        ],
+        "name": "EnigmaCommon",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "id": 2060,
+            "libraryName": {
+              "contractScope": null,
+              "id": 2058,
+              "name": "Bytes",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 11116,
+              "src": "256:5:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_Bytes_$11116",
+                "typeString": "library Bytes"
+              }
+            },
+            "nodeType": "UsingForDirective",
+            "src": "250:22:6",
+            "typeName": {
+              "id": 2059,
+              "name": "bytes",
+              "nodeType": "ElementaryTypeName",
+              "src": "266:5:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_bytes_storage_ptr",
+                "typeString": "bytes"
+              }
+            }
+          },
+          {
+            "id": 2063,
+            "libraryName": {
+              "contractScope": null,
+              "id": 2061,
+              "name": "Bytes",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 11116,
+              "src": "283:5:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_Bytes_$11116",
+                "typeString": "library Bytes"
+              }
+            },
+            "nodeType": "UsingForDirective",
+            "src": "277:23:6",
+            "typeName": {
+              "id": 2062,
+              "name": "uint64",
+              "nodeType": "ElementaryTypeName",
+              "src": "293:6:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint64",
+                "typeString": "uint64"
+              }
+            }
+          },
+          {
+            "canonicalName": "EnigmaCommon.TaskRecord",
+            "id": 2080,
+            "members": [
+              {
+                "constant": false,
+                "id": 2065,
+                "name": "sender",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "436:14:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 2064,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "436:7:6",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2067,
+                "name": "inputsHash",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "484:18:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes32",
+                  "typeString": "bytes32"
+                },
+                "typeName": {
+                  "id": 2066,
+                  "name": "bytes32",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "484:7:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2069,
+                "name": "outputHash",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "591:18:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes32",
+                  "typeString": "bytes32"
+                },
+                "typeName": {
+                  "id": 2068,
+                  "name": "bytes32",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "591:7:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2071,
+                "name": "gasLimit",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "654:15:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint64",
+                  "typeString": "uint64"
+                },
+                "typeName": {
+                  "id": 2070,
+                  "name": "uint64",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "654:6:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2073,
+                "name": "gasPx",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "702:12:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint64",
+                  "typeString": "uint64"
+                },
+                "typeName": {
+                  "id": 2072,
+                  "name": "uint64",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "702:6:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2075,
+                "name": "blockNumber",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "765:16:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2074,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "765:4:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2077,
+                "name": "status",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "828:17:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_enum$_TaskStatus_$2129",
+                  "typeString": "enum EnigmaCommon.TaskStatus"
+                },
+                "typeName": {
+                  "contractScope": null,
+                  "id": 2076,
+                  "name": "TaskStatus",
+                  "nodeType": "UserDefinedTypeName",
+                  "referencedDeclaration": 2129,
+                  "src": "828:10:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_TaskStatus_$2129",
+                    "typeString": "enum EnigmaCommon.TaskStatus"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2079,
+                "name": "proof",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "978:11:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes_storage_ptr",
+                  "typeString": "bytes"
+                },
+                "typeName": {
+                  "id": 2078,
+                  "name": "bytes",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "978:5:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_storage_ptr",
+                    "typeString": "bytes"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "TaskRecord",
+            "nodeType": "StructDefinition",
+            "scope": 2185,
+            "src": "408:659:6",
+            "visibility": "public"
+          },
+          {
+            "canonicalName": "EnigmaCommon.Worker",
+            "id": 2092,
+            "members": [
+              {
+                "constant": false,
+                "id": 2082,
+                "name": "signer",
+                "nodeType": "VariableDeclaration",
+                "scope": 2092,
+                "src": "1097:14:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 2081,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1097:7:6",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2084,
+                "name": "status",
+                "nodeType": "VariableDeclaration",
+                "scope": 2092,
+                "src": "1140:19:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_enum$_WorkerStatus_$2133",
+                  "typeString": "enum EnigmaCommon.WorkerStatus"
+                },
+                "typeName": {
+                  "contractScope": null,
+                  "id": 2083,
+                  "name": "WorkerStatus",
+                  "nodeType": "UserDefinedTypeName",
+                  "referencedDeclaration": 2133,
+                  "src": "1140:12:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_WorkerStatus_$2133",
+                    "typeString": "enum EnigmaCommon.WorkerStatus"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2086,
+                "name": "report",
+                "nodeType": "VariableDeclaration",
+                "scope": 2092,
+                "src": "1215:12:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes_storage_ptr",
+                  "typeString": "bytes"
+                },
+                "typeName": {
+                  "id": 2085,
+                  "name": "bytes",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1215:5:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_storage_ptr",
+                    "typeString": "bytes"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2088,
+                "name": "balance",
+                "nodeType": "VariableDeclaration",
+                "scope": 2092,
+                "src": "1334:15:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2087,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1334:7:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2091,
+                "name": "workerLogs",
+                "nodeType": "VariableDeclaration",
+                "scope": 2092,
+                "src": "1384:22:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_struct$_WorkerLog_$2110_storage_$dyn_storage_ptr",
+                  "typeString": "struct EnigmaCommon.WorkerLog[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "contractScope": null,
+                    "id": 2089,
+                    "name": "WorkerLog",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 2110,
+                    "src": "1384:9:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_WorkerLog_$2110_storage_ptr",
+                      "typeString": "struct EnigmaCommon.WorkerLog"
+                    }
+                  },
+                  "id": 2090,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "1384:11:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_WorkerLog_$2110_storage_$dyn_storage_ptr",
+                    "typeString": "struct EnigmaCommon.WorkerLog[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "Worker",
+            "nodeType": "StructDefinition",
+            "scope": 2185,
+            "src": "1073:399:6",
+            "visibility": "public"
+          },
+          {
+            "canonicalName": "EnigmaCommon.WorkersParams",
+            "id": 2103,
+            "members": [
+              {
+                "constant": false,
+                "id": 2094,
+                "name": "firstBlockNumber",
+                "nodeType": "VariableDeclaration",
+                "scope": 2103,
+                "src": "1634:21:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2093,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1634:4:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2097,
+                "name": "workers",
+                "nodeType": "VariableDeclaration",
+                "scope": 2103,
+                "src": "1665:17:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                  "typeString": "address[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 2095,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1665:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 2096,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "1665:9:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                    "typeString": "address[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2100,
+                "name": "stakes",
+                "nodeType": "VariableDeclaration",
+                "scope": 2103,
+                "src": "1692:13:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                  "typeString": "uint256[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 2098,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1692:4:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "id": 2099,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "1692:6:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                    "typeString": "uint256[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2102,
+                "name": "seed",
+                "nodeType": "VariableDeclaration",
+                "scope": 2103,
+                "src": "1715:9:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2101,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1715:4:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "WorkersParams",
+            "nodeType": "StructDefinition",
+            "scope": 2185,
+            "src": "1603:128:6",
+            "visibility": "public"
+          },
+          {
+            "canonicalName": "EnigmaCommon.WorkerLog",
+            "id": 2110,
+            "members": [
+              {
+                "constant": false,
+                "id": 2105,
+                "name": "workerEventType",
+                "nodeType": "VariableDeclaration",
+                "scope": 2110,
+                "src": "1764:29:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_enum$_WorkerLogType_$2141",
+                  "typeString": "enum EnigmaCommon.WorkerLogType"
+                },
+                "typeName": {
+                  "contractScope": null,
+                  "id": 2104,
+                  "name": "WorkerLogType",
+                  "nodeType": "UserDefinedTypeName",
+                  "referencedDeclaration": 2141,
+                  "src": "1764:13:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_WorkerLogType_$2141",
+                    "typeString": "enum EnigmaCommon.WorkerLogType"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2107,
+                "name": "blockNumber",
+                "nodeType": "VariableDeclaration",
+                "scope": 2110,
+                "src": "1803:16:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2106,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1803:4:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2109,
+                "name": "balance",
+                "nodeType": "VariableDeclaration",
+                "scope": 2110,
+                "src": "1829:12:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2108,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1829:4:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "WorkerLog",
+            "nodeType": "StructDefinition",
+            "scope": 2185,
+            "src": "1737:111:6",
+            "visibility": "public"
+          },
+          {
+            "canonicalName": "EnigmaCommon.SecretContract",
+            "id": 2122,
+            "members": [
+              {
+                "constant": false,
+                "id": 2112,
+                "name": "owner",
+                "nodeType": "VariableDeclaration",
+                "scope": 2122,
+                "src": "1886:13:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 2111,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1886:7:6",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2114,
+                "name": "preCodeHash",
+                "nodeType": "VariableDeclaration",
+                "scope": 2122,
+                "src": "1947:19:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes32",
+                  "typeString": "bytes32"
+                },
+                "typeName": {
+                  "id": 2113,
+                  "name": "bytes32",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1947:7:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2116,
+                "name": "codeHash",
+                "nodeType": "VariableDeclaration",
+                "scope": 2122,
+                "src": "2005:16:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes32",
+                  "typeString": "bytes32"
+                },
+                "typeName": {
+                  "id": 2115,
+                  "name": "bytes32",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "2005:7:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2119,
+                "name": "stateDeltaHashes",
+                "nodeType": "VariableDeclaration",
+                "scope": 2122,
+                "src": "2057:26:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_bytes32_$dyn_storage_ptr",
+                  "typeString": "bytes32[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 2117,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2057:7:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "id": 2118,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "2057:9:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_bytes32_$dyn_storage_ptr",
+                    "typeString": "bytes32[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2121,
+                "name": "status",
+                "nodeType": "VariableDeclaration",
+                "scope": 2122,
+                "src": "2124:27:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_enum$_SecretContractStatus_$2136",
+                  "typeString": "enum EnigmaCommon.SecretContractStatus"
+                },
+                "typeName": {
+                  "contractScope": null,
+                  "id": 2120,
+                  "name": "SecretContractStatus",
+                  "nodeType": "UserDefinedTypeName",
+                  "referencedDeclaration": 2136,
+                  "src": "2124:20:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_SecretContractStatus_$2136",
+                    "typeString": "enum EnigmaCommon.SecretContractStatus"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "SecretContract",
+            "nodeType": "StructDefinition",
+            "scope": 2185,
+            "src": "1854:387:6",
+            "visibility": "public"
+          },
+          {
+            "canonicalName": "EnigmaCommon.TaskStatus",
+            "id": 2129,
+            "members": [
+              {
+                "id": 2123,
+                "name": "RecordUndefined",
+                "nodeType": "EnumValue",
+                "src": "2364:15:6"
+              },
+              {
+                "id": 2124,
+                "name": "RecordCreated",
+                "nodeType": "EnumValue",
+                "src": "2381:13:6"
+              },
+              {
+                "id": 2125,
+                "name": "ReceiptVerified",
+                "nodeType": "EnumValue",
+                "src": "2396:15:6"
+              },
+              {
+                "id": 2126,
+                "name": "ReceiptFailed",
+                "nodeType": "EnumValue",
+                "src": "2413:13:6"
+              },
+              {
+                "id": 2127,
+                "name": "ReceiptFailedETH",
+                "nodeType": "EnumValue",
+                "src": "2428:16:6"
+              },
+              {
+                "id": 2128,
+                "name": "ReceiptFailedReturn",
+                "nodeType": "EnumValue",
+                "src": "2454:19:6"
+              }
+            ],
+            "name": "TaskStatus",
+            "nodeType": "EnumDefinition",
+            "src": "2347:127:6"
+          },
+          {
+            "canonicalName": "EnigmaCommon.WorkerStatus",
+            "id": 2133,
+            "members": [
+              {
+                "id": 2130,
+                "name": "Unregistered",
+                "nodeType": "EnumValue",
+                "src": "2499:12:6"
+              },
+              {
+                "id": 2131,
+                "name": "LoggedIn",
+                "nodeType": "EnumValue",
+                "src": "2513:8:6"
+              },
+              {
+                "id": 2132,
+                "name": "LoggedOut",
+                "nodeType": "EnumValue",
+                "src": "2523:9:6"
+              }
+            ],
+            "name": "WorkerStatus",
+            "nodeType": "EnumDefinition",
+            "src": "2480:53:6"
+          },
+          {
+            "canonicalName": "EnigmaCommon.SecretContractStatus",
+            "id": 2136,
+            "members": [
+              {
+                "id": 2134,
+                "name": "Undefined",
+                "nodeType": "EnumValue",
+                "src": "2566:9:6"
+              },
+              {
+                "id": 2135,
+                "name": "Deployed",
+                "nodeType": "EnumValue",
+                "src": "2577:8:6"
+              }
+            ],
+            "name": "SecretContractStatus",
+            "nodeType": "EnumDefinition",
+            "src": "2539:47:6"
+          },
+          {
+            "canonicalName": "EnigmaCommon.WorkerLogType",
+            "id": 2141,
+            "members": [
+              {
+                "id": 2137,
+                "name": "Undefined",
+                "nodeType": "EnumValue",
+                "src": "2612:9:6"
+              },
+              {
+                "id": 2138,
+                "name": "LogIn",
+                "nodeType": "EnumValue",
+                "src": "2623:5:6"
+              },
+              {
+                "id": 2139,
+                "name": "LogOut",
+                "nodeType": "EnumValue",
+                "src": "2630:6:6"
+              },
+              {
+                "id": 2140,
+                "name": "Compound",
+                "nodeType": "EnumValue",
+                "src": "2638:8:6"
+              }
+            ],
+            "name": "WorkerLogType",
+            "nodeType": "EnumDefinition",
+            "src": "2592:55:6"
+          },
+          {
+            "body": {
+              "id": 2164,
+              "nodeType": "Block",
+              "src": "3167:95:6",
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 2161,
+                        "name": "_var",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 2145,
+                        "src": "3250:4:6",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "components": [
+                          {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "arguments": [],
+                                "expression": {
+                                  "argumentTypes": [],
+                                  "expression": {
+                                    "argumentTypes": null,
+                                    "arguments": [
+                                      {
+                                        "argumentTypes": null,
+                                        "expression": {
+                                          "argumentTypes": null,
+                                          "id": 2153,
+                                          "name": "_var",
+                                          "nodeType": "Identifier",
+                                          "overloadedDeclarations": [],
+                                          "referencedDeclaration": 2145,
+                                          "src": "3208:4:6",
+                                          "typeDescriptions": {
+                                            "typeIdentifier": "t_bytes_memory_ptr",
+                                            "typeString": "bytes memory"
+                                          }
+                                        },
+                                        "id": 2154,
+                                        "isConstant": false,
+                                        "isLValue": false,
+                                        "isPure": false,
+                                        "lValueRequested": false,
+                                        "memberName": "length",
+                                        "nodeType": "MemberAccess",
+                                        "referencedDeclaration": null,
+                                        "src": "3208:11:6",
+                                        "typeDescriptions": {
+                                          "typeIdentifier": "t_uint256",
+                                          "typeString": "uint256"
+                                        }
+                                      }
+                                    ],
+                                    "expression": {
+                                      "argumentTypes": [
+                                        {
+                                          "typeIdentifier": "t_uint256",
+                                          "typeString": "uint256"
+                                        }
+                                      ],
+                                      "id": 2152,
+                                      "isConstant": false,
+                                      "isLValue": false,
+                                      "isPure": true,
+                                      "lValueRequested": false,
+                                      "nodeType": "ElementaryTypeNameExpression",
+                                      "src": "3201:6:6",
+                                      "typeDescriptions": {
+                                        "typeIdentifier": "t_type$_t_uint64_$",
+                                        "typeString": "type(uint64)"
+                                      },
+                                      "typeName": "uint64"
+                                    },
+                                    "id": 2155,
+                                    "isConstant": false,
+                                    "isLValue": false,
+                                    "isPure": false,
+                                    "kind": "typeConversion",
+                                    "lValueRequested": false,
+                                    "names": [],
+                                    "nodeType": "FunctionCall",
+                                    "src": "3201:19:6",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_uint64",
+                                      "typeString": "uint64"
+                                    }
+                                  },
+                                  "id": 2156,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "lValueRequested": false,
+                                  "memberName": "toBytesFromUint64",
+                                  "nodeType": "MemberAccess",
+                                  "referencedDeclaration": 10818,
+                                  "src": "3201:37:6",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_function_internal_pure$_t_uint64_$returns$_t_bytes_memory_ptr_$bound_to$_t_uint64_$",
+                                    "typeString": "function (uint64) pure returns (bytes memory)"
+                                  }
+                                },
+                                "id": 2157,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "kind": "functionCall",
+                                "lValueRequested": false,
+                                "names": [],
+                                "nodeType": "FunctionCall",
+                                "src": "3201:39:6",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_bytes_memory_ptr",
+                                  "typeString": "bytes memory"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_bytes_memory_ptr",
+                                  "typeString": "bytes memory"
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": null,
+                                "id": 2150,
+                                "name": "_message",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 2143,
+                                "src": "3185:8:6",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_bytes_memory_ptr",
+                                  "typeString": "bytes memory"
+                                }
+                              },
+                              "id": 2151,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "memberName": "concat",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": 10629,
+                              "src": "3185:15:6",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_internal_pure$_t_bytes_memory_ptr_$_t_bytes_memory_ptr_$returns$_t_bytes_memory_ptr_$bound_to$_t_bytes_memory_ptr_$",
+                                "typeString": "function (bytes memory,bytes memory) pure returns (bytes memory)"
+                              }
+                            },
+                            "id": 2158,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "3185:56:6",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_bytes_memory_ptr",
+                              "typeString": "bytes memory"
+                            }
+                          }
+                        ],
+                        "id": 2159,
+                        "isConstant": false,
+                        "isInlineArray": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "nodeType": "TupleExpression",
+                        "src": "3184:58:6",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      },
+                      "id": 2160,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "concat",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 10629,
+                      "src": "3184:65:6",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_pure$_t_bytes_memory_ptr_$_t_bytes_memory_ptr_$returns$_t_bytes_memory_ptr_$bound_to$_t_bytes_memory_ptr_$",
+                        "typeString": "function (bytes memory,bytes memory) pure returns (bytes memory)"
+                      }
+                    },
+                    "id": 2162,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3184:71:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_memory_ptr",
+                      "typeString": "bytes memory"
+                    }
+                  },
+                  "functionReturnParameters": 2149,
+                  "id": 2163,
+                  "nodeType": "Return",
+                  "src": "3177:78:6"
+                }
+              ]
+            },
+            "documentation": "Append the length of a variable and the variable to an existing bytes buffer\n    * @param _message Bytes buffer being appended to\n@param _var Bytes representation of value that needs to be concatenated to existing buffer\n@return New bytes buffer",
+            "id": 2165,
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "appendMessage",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 2146,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2143,
+                  "name": "_message",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2165,
+                  "src": "3072:21:6",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2142,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3072:5:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2145,
+                  "name": "_var",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2165,
+                  "src": "3095:17:6",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2144,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3095:5:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3071:42:6"
+            },
+            "returnParameters": {
+              "id": 2149,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2148,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2165,
+                  "src": "3149:12:6",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2147,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3149:5:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3148:14:6"
+            },
+            "scope": 2185,
+            "src": "3049:213:6",
+            "stateMutability": "pure",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 2183,
+              "nodeType": "Block",
+              "src": "3611:81:6",
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "arguments": [],
+                        "expression": {
+                          "argumentTypes": [],
+                          "expression": {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "id": 2177,
+                                "name": "_arraylength",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 2167,
+                                "src": "3651:12:6",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              ],
+                              "id": 2176,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "lValueRequested": false,
+                              "nodeType": "ElementaryTypeNameExpression",
+                              "src": "3644:6:6",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_type$_t_uint64_$",
+                                "typeString": "type(uint64)"
+                              },
+                              "typeName": "uint64"
+                            },
+                            "id": 2178,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "typeConversion",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "3644:20:6",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint64",
+                              "typeString": "uint64"
+                            }
+                          },
+                          "id": 2179,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "memberName": "toBytesFromUint64",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": 10818,
+                          "src": "3644:38:6",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_function_internal_pure$_t_uint64_$returns$_t_bytes_memory_ptr_$bound_to$_t_uint64_$",
+                            "typeString": "function (uint64) pure returns (bytes memory)"
+                          }
+                        },
+                        "id": 2180,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "functionCall",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "3644:40:6",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 2174,
+                        "name": "_message",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 2169,
+                        "src": "3628:8:6",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      },
+                      "id": 2175,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "concat",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 10629,
+                      "src": "3628:15:6",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_pure$_t_bytes_memory_ptr_$_t_bytes_memory_ptr_$returns$_t_bytes_memory_ptr_$bound_to$_t_bytes_memory_ptr_$",
+                        "typeString": "function (bytes memory,bytes memory) pure returns (bytes memory)"
+                      }
+                    },
+                    "id": 2181,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3628:57:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_memory_ptr",
+                      "typeString": "bytes memory"
+                    }
+                  },
+                  "functionReturnParameters": 2173,
+                  "id": 2182,
+                  "nodeType": "Return",
+                  "src": "3621:64:6"
+                }
+              ]
+            },
+            "documentation": "Append the length of an array to an existing bytes buffer\n    * @param _message Bytes buffer being appended to\n@param _arraylength Length of array\n@return New bytes buffer",
+            "id": 2184,
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "appendMessageArrayLength",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 2170,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2167,
+                  "name": "_arraylength",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2184,
+                  "src": "3513:20:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 2166,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3513:7:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2169,
+                  "name": "_message",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2184,
+                  "src": "3535:21:6",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2168,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3535:5:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3512:45:6"
+            },
+            "returnParameters": {
+              "id": 2173,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2172,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2184,
+                  "src": "3593:12:6",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2171,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3593:5:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3592:14:6"
+            },
+            "scope": 2185,
+            "src": "3479:213:6",
+            "stateMutability": "pure",
+            "superFunction": null,
+            "visibility": "internal"
+          }
+        ],
+        "scope": 2186,
+        "src": "223:3471:6"
+      }
+    ],
+    "src": "0:3695:6"
+  },
+  "legacyAST": {
+    "absolutePath": "/root/enigma-contract/contracts/impl/EnigmaCommon.sol",
+    "exportedSymbols": {
+      "EnigmaCommon": [
+        2185
+      ]
+    },
+    "id": 2186,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 2054,
+        "literals": [
+          "solidity",
+          "^",
+          "0.5",
+          ".0"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "0:23:6"
+      },
+      {
+        "id": 2055,
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "24:33:6"
+      },
+      {
+        "absolutePath": "/root/enigma-contract/contracts/utils/Bytes.sol",
+        "file": "../utils/Bytes.sol",
+        "id": 2057,
+        "nodeType": "ImportDirective",
+        "scope": 2186,
+        "sourceUnit": 11117,
+        "src": "59:43:6",
+        "symbolAliases": [
+          {
+            "foreign": 2056,
+            "local": null
+          }
+        ],
+        "unitAlias": ""
+      },
+      {
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "library",
+        "documentation": "@author Enigma\n * This library contains the common structs and enums used throughout the Enigma codebase",
+        "fullyImplemented": true,
+        "id": 2185,
+        "linearizedBaseContracts": [
+          2185
+        ],
+        "name": "EnigmaCommon",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "id": 2060,
+            "libraryName": {
+              "contractScope": null,
+              "id": 2058,
+              "name": "Bytes",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 11116,
+              "src": "256:5:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_Bytes_$11116",
+                "typeString": "library Bytes"
+              }
+            },
+            "nodeType": "UsingForDirective",
+            "src": "250:22:6",
+            "typeName": {
+              "id": 2059,
+              "name": "bytes",
+              "nodeType": "ElementaryTypeName",
+              "src": "266:5:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_bytes_storage_ptr",
+                "typeString": "bytes"
+              }
+            }
+          },
+          {
+            "id": 2063,
+            "libraryName": {
+              "contractScope": null,
+              "id": 2061,
+              "name": "Bytes",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 11116,
+              "src": "283:5:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_Bytes_$11116",
+                "typeString": "library Bytes"
+              }
+            },
+            "nodeType": "UsingForDirective",
+            "src": "277:23:6",
+            "typeName": {
+              "id": 2062,
+              "name": "uint64",
+              "nodeType": "ElementaryTypeName",
+              "src": "293:6:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint64",
+                "typeString": "uint64"
+              }
+            }
+          },
+          {
+            "canonicalName": "EnigmaCommon.TaskRecord",
+            "id": 2080,
+            "members": [
+              {
+                "constant": false,
+                "id": 2065,
+                "name": "sender",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "436:14:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 2064,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "436:7:6",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2067,
+                "name": "inputsHash",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "484:18:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes32",
+                  "typeString": "bytes32"
+                },
+                "typeName": {
+                  "id": 2066,
+                  "name": "bytes32",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "484:7:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2069,
+                "name": "outputHash",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "591:18:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes32",
+                  "typeString": "bytes32"
+                },
+                "typeName": {
+                  "id": 2068,
+                  "name": "bytes32",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "591:7:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2071,
+                "name": "gasLimit",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "654:15:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint64",
+                  "typeString": "uint64"
+                },
+                "typeName": {
+                  "id": 2070,
+                  "name": "uint64",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "654:6:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2073,
+                "name": "gasPx",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "702:12:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint64",
+                  "typeString": "uint64"
+                },
+                "typeName": {
+                  "id": 2072,
+                  "name": "uint64",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "702:6:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2075,
+                "name": "blockNumber",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "765:16:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2074,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "765:4:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2077,
+                "name": "status",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "828:17:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_enum$_TaskStatus_$2129",
+                  "typeString": "enum EnigmaCommon.TaskStatus"
+                },
+                "typeName": {
+                  "contractScope": null,
+                  "id": 2076,
+                  "name": "TaskStatus",
+                  "nodeType": "UserDefinedTypeName",
+                  "referencedDeclaration": 2129,
+                  "src": "828:10:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_TaskStatus_$2129",
+                    "typeString": "enum EnigmaCommon.TaskStatus"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2079,
+                "name": "proof",
+                "nodeType": "VariableDeclaration",
+                "scope": 2080,
+                "src": "978:11:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes_storage_ptr",
+                  "typeString": "bytes"
+                },
+                "typeName": {
+                  "id": 2078,
+                  "name": "bytes",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "978:5:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_storage_ptr",
+                    "typeString": "bytes"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "TaskRecord",
+            "nodeType": "StructDefinition",
+            "scope": 2185,
+            "src": "408:659:6",
+            "visibility": "public"
+          },
+          {
+            "canonicalName": "EnigmaCommon.Worker",
+            "id": 2092,
+            "members": [
+              {
+                "constant": false,
+                "id": 2082,
+                "name": "signer",
+                "nodeType": "VariableDeclaration",
+                "scope": 2092,
+                "src": "1097:14:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 2081,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1097:7:6",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2084,
+                "name": "status",
+                "nodeType": "VariableDeclaration",
+                "scope": 2092,
+                "src": "1140:19:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_enum$_WorkerStatus_$2133",
+                  "typeString": "enum EnigmaCommon.WorkerStatus"
+                },
+                "typeName": {
+                  "contractScope": null,
+                  "id": 2083,
+                  "name": "WorkerStatus",
+                  "nodeType": "UserDefinedTypeName",
+                  "referencedDeclaration": 2133,
+                  "src": "1140:12:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_WorkerStatus_$2133",
+                    "typeString": "enum EnigmaCommon.WorkerStatus"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2086,
+                "name": "report",
+                "nodeType": "VariableDeclaration",
+                "scope": 2092,
+                "src": "1215:12:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes_storage_ptr",
+                  "typeString": "bytes"
+                },
+                "typeName": {
+                  "id": 2085,
+                  "name": "bytes",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1215:5:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_storage_ptr",
+                    "typeString": "bytes"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2088,
+                "name": "balance",
+                "nodeType": "VariableDeclaration",
+                "scope": 2092,
+                "src": "1334:15:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2087,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1334:7:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2091,
+                "name": "workerLogs",
+                "nodeType": "VariableDeclaration",
+                "scope": 2092,
+                "src": "1384:22:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_struct$_WorkerLog_$2110_storage_$dyn_storage_ptr",
+                  "typeString": "struct EnigmaCommon.WorkerLog[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "contractScope": null,
+                    "id": 2089,
+                    "name": "WorkerLog",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 2110,
+                    "src": "1384:9:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_WorkerLog_$2110_storage_ptr",
+                      "typeString": "struct EnigmaCommon.WorkerLog"
+                    }
+                  },
+                  "id": 2090,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "1384:11:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_WorkerLog_$2110_storage_$dyn_storage_ptr",
+                    "typeString": "struct EnigmaCommon.WorkerLog[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "Worker",
+            "nodeType": "StructDefinition",
+            "scope": 2185,
+            "src": "1073:399:6",
+            "visibility": "public"
+          },
+          {
+            "canonicalName": "EnigmaCommon.WorkersParams",
+            "id": 2103,
+            "members": [
+              {
+                "constant": false,
+                "id": 2094,
+                "name": "firstBlockNumber",
+                "nodeType": "VariableDeclaration",
+                "scope": 2103,
+                "src": "1634:21:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2093,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1634:4:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2097,
+                "name": "workers",
+                "nodeType": "VariableDeclaration",
+                "scope": 2103,
+                "src": "1665:17:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                  "typeString": "address[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 2095,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1665:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 2096,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "1665:9:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                    "typeString": "address[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2100,
+                "name": "stakes",
+                "nodeType": "VariableDeclaration",
+                "scope": 2103,
+                "src": "1692:13:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                  "typeString": "uint256[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 2098,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1692:4:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "id": 2099,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "1692:6:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                    "typeString": "uint256[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2102,
+                "name": "seed",
+                "nodeType": "VariableDeclaration",
+                "scope": 2103,
+                "src": "1715:9:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2101,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1715:4:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "WorkersParams",
+            "nodeType": "StructDefinition",
+            "scope": 2185,
+            "src": "1603:128:6",
+            "visibility": "public"
+          },
+          {
+            "canonicalName": "EnigmaCommon.WorkerLog",
+            "id": 2110,
+            "members": [
+              {
+                "constant": false,
+                "id": 2105,
+                "name": "workerEventType",
+                "nodeType": "VariableDeclaration",
+                "scope": 2110,
+                "src": "1764:29:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_enum$_WorkerLogType_$2141",
+                  "typeString": "enum EnigmaCommon.WorkerLogType"
+                },
+                "typeName": {
+                  "contractScope": null,
+                  "id": 2104,
+                  "name": "WorkerLogType",
+                  "nodeType": "UserDefinedTypeName",
+                  "referencedDeclaration": 2141,
+                  "src": "1764:13:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_WorkerLogType_$2141",
+                    "typeString": "enum EnigmaCommon.WorkerLogType"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2107,
+                "name": "blockNumber",
+                "nodeType": "VariableDeclaration",
+                "scope": 2110,
+                "src": "1803:16:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2106,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1803:4:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2109,
+                "name": "balance",
+                "nodeType": "VariableDeclaration",
+                "scope": 2110,
+                "src": "1829:12:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 2108,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1829:4:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "WorkerLog",
+            "nodeType": "StructDefinition",
+            "scope": 2185,
+            "src": "1737:111:6",
+            "visibility": "public"
+          },
+          {
+            "canonicalName": "EnigmaCommon.SecretContract",
+            "id": 2122,
+            "members": [
+              {
+                "constant": false,
+                "id": 2112,
+                "name": "owner",
+                "nodeType": "VariableDeclaration",
+                "scope": 2122,
+                "src": "1886:13:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 2111,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1886:7:6",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2114,
+                "name": "preCodeHash",
+                "nodeType": "VariableDeclaration",
+                "scope": 2122,
+                "src": "1947:19:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes32",
+                  "typeString": "bytes32"
+                },
+                "typeName": {
+                  "id": 2113,
+                  "name": "bytes32",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1947:7:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2116,
+                "name": "codeHash",
+                "nodeType": "VariableDeclaration",
+                "scope": 2122,
+                "src": "2005:16:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes32",
+                  "typeString": "bytes32"
+                },
+                "typeName": {
+                  "id": 2115,
+                  "name": "bytes32",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "2005:7:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2119,
+                "name": "stateDeltaHashes",
+                "nodeType": "VariableDeclaration",
+                "scope": 2122,
+                "src": "2057:26:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_bytes32_$dyn_storage_ptr",
+                  "typeString": "bytes32[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 2117,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2057:7:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "id": 2118,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "2057:9:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_bytes32_$dyn_storage_ptr",
+                    "typeString": "bytes32[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 2121,
+                "name": "status",
+                "nodeType": "VariableDeclaration",
+                "scope": 2122,
+                "src": "2124:27:6",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_enum$_SecretContractStatus_$2136",
+                  "typeString": "enum EnigmaCommon.SecretContractStatus"
+                },
+                "typeName": {
+                  "contractScope": null,
+                  "id": 2120,
+                  "name": "SecretContractStatus",
+                  "nodeType": "UserDefinedTypeName",
+                  "referencedDeclaration": 2136,
+                  "src": "2124:20:6",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_SecretContractStatus_$2136",
+                    "typeString": "enum EnigmaCommon.SecretContractStatus"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "SecretContract",
+            "nodeType": "StructDefinition",
+            "scope": 2185,
+            "src": "1854:387:6",
+            "visibility": "public"
+          },
+          {
+            "canonicalName": "EnigmaCommon.TaskStatus",
+            "id": 2129,
+            "members": [
+              {
+                "id": 2123,
+                "name": "RecordUndefined",
+                "nodeType": "EnumValue",
+                "src": "2364:15:6"
+              },
+              {
+                "id": 2124,
+                "name": "RecordCreated",
+                "nodeType": "EnumValue",
+                "src": "2381:13:6"
+              },
+              {
+                "id": 2125,
+                "name": "ReceiptVerified",
+                "nodeType": "EnumValue",
+                "src": "2396:15:6"
+              },
+              {
+                "id": 2126,
+                "name": "ReceiptFailed",
+                "nodeType": "EnumValue",
+                "src": "2413:13:6"
+              },
+              {
+                "id": 2127,
+                "name": "ReceiptFailedETH",
+                "nodeType": "EnumValue",
+                "src": "2428:16:6"
+              },
+              {
+                "id": 2128,
+                "name": "ReceiptFailedReturn",
+                "nodeType": "EnumValue",
+                "src": "2454:19:6"
+              }
+            ],
+            "name": "TaskStatus",
+            "nodeType": "EnumDefinition",
+            "src": "2347:127:6"
+          },
+          {
+            "canonicalName": "EnigmaCommon.WorkerStatus",
+            "id": 2133,
+            "members": [
+              {
+                "id": 2130,
+                "name": "Unregistered",
+                "nodeType": "EnumValue",
+                "src": "2499:12:6"
+              },
+              {
+                "id": 2131,
+                "name": "LoggedIn",
+                "nodeType": "EnumValue",
+                "src": "2513:8:6"
+              },
+              {
+                "id": 2132,
+                "name": "LoggedOut",
+                "nodeType": "EnumValue",
+                "src": "2523:9:6"
+              }
+            ],
+            "name": "WorkerStatus",
+            "nodeType": "EnumDefinition",
+            "src": "2480:53:6"
+          },
+          {
+            "canonicalName": "EnigmaCommon.SecretContractStatus",
+            "id": 2136,
+            "members": [
+              {
+                "id": 2134,
+                "name": "Undefined",
+                "nodeType": "EnumValue",
+                "src": "2566:9:6"
+              },
+              {
+                "id": 2135,
+                "name": "Deployed",
+                "nodeType": "EnumValue",
+                "src": "2577:8:6"
+              }
+            ],
+            "name": "SecretContractStatus",
+            "nodeType": "EnumDefinition",
+            "src": "2539:47:6"
+          },
+          {
+            "canonicalName": "EnigmaCommon.WorkerLogType",
+            "id": 2141,
+            "members": [
+              {
+                "id": 2137,
+                "name": "Undefined",
+                "nodeType": "EnumValue",
+                "src": "2612:9:6"
+              },
+              {
+                "id": 2138,
+                "name": "LogIn",
+                "nodeType": "EnumValue",
+                "src": "2623:5:6"
+              },
+              {
+                "id": 2139,
+                "name": "LogOut",
+                "nodeType": "EnumValue",
+                "src": "2630:6:6"
+              },
+              {
+                "id": 2140,
+                "name": "Compound",
+                "nodeType": "EnumValue",
+                "src": "2638:8:6"
+              }
+            ],
+            "name": "WorkerLogType",
+            "nodeType": "EnumDefinition",
+            "src": "2592:55:6"
+          },
+          {
+            "body": {
+              "id": 2164,
+              "nodeType": "Block",
+              "src": "3167:95:6",
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 2161,
+                        "name": "_var",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 2145,
+                        "src": "3250:4:6",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "components": [
+                          {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "arguments": [],
+                                "expression": {
+                                  "argumentTypes": [],
+                                  "expression": {
+                                    "argumentTypes": null,
+                                    "arguments": [
+                                      {
+                                        "argumentTypes": null,
+                                        "expression": {
+                                          "argumentTypes": null,
+                                          "id": 2153,
+                                          "name": "_var",
+                                          "nodeType": "Identifier",
+                                          "overloadedDeclarations": [],
+                                          "referencedDeclaration": 2145,
+                                          "src": "3208:4:6",
+                                          "typeDescriptions": {
+                                            "typeIdentifier": "t_bytes_memory_ptr",
+                                            "typeString": "bytes memory"
+                                          }
+                                        },
+                                        "id": 2154,
+                                        "isConstant": false,
+                                        "isLValue": false,
+                                        "isPure": false,
+                                        "lValueRequested": false,
+                                        "memberName": "length",
+                                        "nodeType": "MemberAccess",
+                                        "referencedDeclaration": null,
+                                        "src": "3208:11:6",
+                                        "typeDescriptions": {
+                                          "typeIdentifier": "t_uint256",
+                                          "typeString": "uint256"
+                                        }
+                                      }
+                                    ],
+                                    "expression": {
+                                      "argumentTypes": [
+                                        {
+                                          "typeIdentifier": "t_uint256",
+                                          "typeString": "uint256"
+                                        }
+                                      ],
+                                      "id": 2152,
+                                      "isConstant": false,
+                                      "isLValue": false,
+                                      "isPure": true,
+                                      "lValueRequested": false,
+                                      "nodeType": "ElementaryTypeNameExpression",
+                                      "src": "3201:6:6",
+                                      "typeDescriptions": {
+                                        "typeIdentifier": "t_type$_t_uint64_$",
+                                        "typeString": "type(uint64)"
+                                      },
+                                      "typeName": "uint64"
+                                    },
+                                    "id": 2155,
+                                    "isConstant": false,
+                                    "isLValue": false,
+                                    "isPure": false,
+                                    "kind": "typeConversion",
+                                    "lValueRequested": false,
+                                    "names": [],
+                                    "nodeType": "FunctionCall",
+                                    "src": "3201:19:6",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_uint64",
+                                      "typeString": "uint64"
+                                    }
+                                  },
+                                  "id": 2156,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "lValueRequested": false,
+                                  "memberName": "toBytesFromUint64",
+                                  "nodeType": "MemberAccess",
+                                  "referencedDeclaration": 10818,
+                                  "src": "3201:37:6",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_function_internal_pure$_t_uint64_$returns$_t_bytes_memory_ptr_$bound_to$_t_uint64_$",
+                                    "typeString": "function (uint64) pure returns (bytes memory)"
+                                  }
+                                },
+                                "id": 2157,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "kind": "functionCall",
+                                "lValueRequested": false,
+                                "names": [],
+                                "nodeType": "FunctionCall",
+                                "src": "3201:39:6",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_bytes_memory_ptr",
+                                  "typeString": "bytes memory"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_bytes_memory_ptr",
+                                  "typeString": "bytes memory"
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": null,
+                                "id": 2150,
+                                "name": "_message",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 2143,
+                                "src": "3185:8:6",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_bytes_memory_ptr",
+                                  "typeString": "bytes memory"
+                                }
+                              },
+                              "id": 2151,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "memberName": "concat",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": 10629,
+                              "src": "3185:15:6",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_internal_pure$_t_bytes_memory_ptr_$_t_bytes_memory_ptr_$returns$_t_bytes_memory_ptr_$bound_to$_t_bytes_memory_ptr_$",
+                                "typeString": "function (bytes memory,bytes memory) pure returns (bytes memory)"
+                              }
+                            },
+                            "id": 2158,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "3185:56:6",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_bytes_memory_ptr",
+                              "typeString": "bytes memory"
+                            }
+                          }
+                        ],
+                        "id": 2159,
+                        "isConstant": false,
+                        "isInlineArray": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "nodeType": "TupleExpression",
+                        "src": "3184:58:6",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      },
+                      "id": 2160,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "concat",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 10629,
+                      "src": "3184:65:6",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_pure$_t_bytes_memory_ptr_$_t_bytes_memory_ptr_$returns$_t_bytes_memory_ptr_$bound_to$_t_bytes_memory_ptr_$",
+                        "typeString": "function (bytes memory,bytes memory) pure returns (bytes memory)"
+                      }
+                    },
+                    "id": 2162,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3184:71:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_memory_ptr",
+                      "typeString": "bytes memory"
+                    }
+                  },
+                  "functionReturnParameters": 2149,
+                  "id": 2163,
+                  "nodeType": "Return",
+                  "src": "3177:78:6"
+                }
+              ]
+            },
+            "documentation": "Append the length of a variable and the variable to an existing bytes buffer\n    * @param _message Bytes buffer being appended to\n@param _var Bytes representation of value that needs to be concatenated to existing buffer\n@return New bytes buffer",
+            "id": 2165,
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "appendMessage",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 2146,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2143,
+                  "name": "_message",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2165,
+                  "src": "3072:21:6",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2142,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3072:5:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2145,
+                  "name": "_var",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2165,
+                  "src": "3095:17:6",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2144,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3095:5:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3071:42:6"
+            },
+            "returnParameters": {
+              "id": 2149,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2148,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2165,
+                  "src": "3149:12:6",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2147,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3149:5:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3148:14:6"
+            },
+            "scope": 2185,
+            "src": "3049:213:6",
+            "stateMutability": "pure",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 2183,
+              "nodeType": "Block",
+              "src": "3611:81:6",
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "arguments": [],
+                        "expression": {
+                          "argumentTypes": [],
+                          "expression": {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "id": 2177,
+                                "name": "_arraylength",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 2167,
+                                "src": "3651:12:6",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              ],
+                              "id": 2176,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "lValueRequested": false,
+                              "nodeType": "ElementaryTypeNameExpression",
+                              "src": "3644:6:6",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_type$_t_uint64_$",
+                                "typeString": "type(uint64)"
+                              },
+                              "typeName": "uint64"
+                            },
+                            "id": 2178,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "typeConversion",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "3644:20:6",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint64",
+                              "typeString": "uint64"
+                            }
+                          },
+                          "id": 2179,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "memberName": "toBytesFromUint64",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": 10818,
+                          "src": "3644:38:6",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_function_internal_pure$_t_uint64_$returns$_t_bytes_memory_ptr_$bound_to$_t_uint64_$",
+                            "typeString": "function (uint64) pure returns (bytes memory)"
+                          }
+                        },
+                        "id": 2180,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "functionCall",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "3644:40:6",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 2174,
+                        "name": "_message",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 2169,
+                        "src": "3628:8:6",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      },
+                      "id": 2175,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "concat",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 10629,
+                      "src": "3628:15:6",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_pure$_t_bytes_memory_ptr_$_t_bytes_memory_ptr_$returns$_t_bytes_memory_ptr_$bound_to$_t_bytes_memory_ptr_$",
+                        "typeString": "function (bytes memory,bytes memory) pure returns (bytes memory)"
+                      }
+                    },
+                    "id": 2181,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3628:57:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_memory_ptr",
+                      "typeString": "bytes memory"
+                    }
+                  },
+                  "functionReturnParameters": 2173,
+                  "id": 2182,
+                  "nodeType": "Return",
+                  "src": "3621:64:6"
+                }
+              ]
+            },
+            "documentation": "Append the length of an array to an existing bytes buffer\n    * @param _message Bytes buffer being appended to\n@param _arraylength Length of array\n@return New bytes buffer",
+            "id": 2184,
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "appendMessageArrayLength",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 2170,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2167,
+                  "name": "_arraylength",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2184,
+                  "src": "3513:20:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 2166,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3513:7:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2169,
+                  "name": "_message",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2184,
+                  "src": "3535:21:6",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2168,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3535:5:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3512:45:6"
+            },
+            "returnParameters": {
+              "id": 2173,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2172,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2184,
+                  "src": "3593:12:6",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2171,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3593:5:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3592:14:6"
+            },
+            "scope": 2185,
+            "src": "3479:213:6",
+            "stateMutability": "pure",
+            "superFunction": null,
+            "visibility": "internal"
+          }
+        ],
+        "scope": 2186,
+        "src": "223:3471:6"
+      }
+    ],
+    "src": "0:3695:6"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.5.8+commit.23d335f2.Emscripten.clang"
+  },
+  "networks": {},
+  "schemaVersion": "3.0.16",
+  "updatedAt": "2019-12-16T04:26:41.095Z",
+  "devdoc": {
+    "author": "Enigma * This library contains the common structs and enums used throughout the Enigma codebase",
+    "methods": {}
+  },
+  "userdoc": {
+    "methods": {}
+  }
+}

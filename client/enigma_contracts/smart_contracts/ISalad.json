@@ -1,0 +1,309 @@
+{
+  "contractName": "ISalad",
+  "abi": [
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_dealId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address payable[]",
+          "name": "_recipients",
+          "type": "address[]"
+        }
+      ],
+      "name": "distribute",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "metadata": "{\"compiler\":{\"version\":\"0.5.12+commit.7709ece9\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"constant\":false,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_dealId\",\"type\":\"uint256\"},{\"internalType\":\"address payable[]\",\"name\":\"_recipients\",\"type\":\"address[]\"}],\"name\":\"distribute\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"methods\":{}},\"userdoc\":{\"methods\":{}}},\"settings\":{\"compilationTarget\":{\"/Users/taariq/code/enigma-protocol/salad_11.15/smart_contracts/ISalad.sol\":\"ISalad\"},\"evmVersion\":\"petersburg\",\"libraries\":{},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"/Users/taariq/code/enigma-protocol/salad_11.15/smart_contracts/ISalad.sol\":{\"keccak256\":\"0x15a546f83eef75a6be983ec9bf072b20219b4f79ae9d844e427988697a8c09dd\",\"urls\":[\"bzz-raw://4691ef58377003e48f1422c5e4f485327d0915d399aafcd5fdea5cdc80fe1403\",\"dweb:/ipfs/Qma37esjCJWQmc5CzC2kzP9P2WdHXGrV67vAqKqan44Z2A\"]}},\"version\":1}",
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "sourceMap": "",
+  "deployedSourceMap": "",
+  "source": "pragma solidity ^0.5.1;\n\ninterface ISalad {\n    function distribute(uint256 _dealId, address payable[] calldata _recipients) external;\n}\n",
+  "sourcePath": "/Users/taariq/code/enigma-protocol/salad_11.15/smart_contracts/ISalad.sol",
+  "ast": {
+    "absolutePath": "/Users/taariq/code/enigma-protocol/salad_11.15/smart_contracts/ISalad.sol",
+    "exportedSymbols": {
+      "ISalad": [
+        10
+      ]
+    },
+    "id": 11,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 1,
+        "literals": [
+          "solidity",
+          "^",
+          "0.5",
+          ".1"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "0:23:0"
+      },
+      {
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": null,
+        "fullyImplemented": false,
+        "id": 10,
+        "linearizedBaseContracts": [
+          10
+        ],
+        "name": "ISalad",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "body": null,
+            "documentation": null,
+            "id": 9,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "distribute",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 3,
+                  "name": "_dealId",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 9,
+                  "src": "68:15:0",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 2,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "68:7:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6,
+                  "name": "_recipients",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 9,
+                  "src": "85:38:0",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_payable_$dyn_calldata_ptr",
+                    "typeString": "address payable[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 4,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "85:15:0",
+                      "stateMutability": "payable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address_payable",
+                        "typeString": "address payable"
+                      }
+                    },
+                    "id": 5,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "85:17:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_payable_$dyn_storage_ptr",
+                      "typeString": "address payable[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "67:57:0"
+            },
+            "returnParameters": {
+              "id": 8,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "133:0:0"
+            },
+            "scope": 10,
+            "src": "48:86:0",
+            "stateMutability": "nonpayable",
+            "superFunction": null,
+            "visibility": "external"
+          }
+        ],
+        "scope": 11,
+        "src": "25:111:0"
+      }
+    ],
+    "src": "0:137:0"
+  },
+  "legacyAST": {
+    "absolutePath": "/Users/taariq/code/enigma-protocol/salad_11.15/smart_contracts/ISalad.sol",
+    "exportedSymbols": {
+      "ISalad": [
+        10
+      ]
+    },
+    "id": 11,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 1,
+        "literals": [
+          "solidity",
+          "^",
+          "0.5",
+          ".1"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "0:23:0"
+      },
+      {
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": null,
+        "fullyImplemented": false,
+        "id": 10,
+        "linearizedBaseContracts": [
+          10
+        ],
+        "name": "ISalad",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "body": null,
+            "documentation": null,
+            "id": 9,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "distribute",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 3,
+                  "name": "_dealId",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 9,
+                  "src": "68:15:0",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 2,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "68:7:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6,
+                  "name": "_recipients",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 9,
+                  "src": "85:38:0",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_payable_$dyn_calldata_ptr",
+                    "typeString": "address payable[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 4,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "85:15:0",
+                      "stateMutability": "payable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address_payable",
+                        "typeString": "address payable"
+                      }
+                    },
+                    "id": 5,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "85:17:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_payable_$dyn_storage_ptr",
+                      "typeString": "address payable[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "67:57:0"
+            },
+            "returnParameters": {
+              "id": 8,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "133:0:0"
+            },
+            "scope": 10,
+            "src": "48:86:0",
+            "stateMutability": "nonpayable",
+            "superFunction": null,
+            "visibility": "external"
+          }
+        ],
+        "scope": 11,
+        "src": "25:111:0"
+      }
+    ],
+    "src": "0:137:0"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.5.12+commit.7709ece9.Emscripten.clang"
+  },
+  "networks": {},
+  "schemaVersion": "3.0.19",
+  "updatedAt": "2019-12-15T05:11:51.120Z",
+  "devdoc": {
+    "methods": {}
+  },
+  "userdoc": {
+    "methods": {}
+  }
+}
