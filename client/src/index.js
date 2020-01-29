@@ -306,6 +306,30 @@ class CoinjoinClient {
     }
 
     /**
+     * Returns the payload required to Make user deposit on Ethereum
+     * @param {string} sender - The deposit sender's Ethereum address
+     * @param {string} amount - The deposit amount in WEI (e.g. "10000000")
+     * @returns {Promise<Receipt>}
+     */
+    makeDepositData(sender, amount) {
+        if (!this.web3.utils.isAddress(sender)) {
+            throw new Error(`Invalid sender ${sender}`);
+        }
+        if (isNaN(parseInt(amount))) {
+            throw new Error(`Invalid amount ${amount}`);
+        }
+        debug('Making deposit transaction data', amount);
+        
+        let data = this.contract.methods.makeDeposit().encodeABI();
+        return {
+            from: sender,
+            to: this.contract.options.address,
+            value: amount,
+            data: data
+        };
+    }
+
+    /**
      * Verify the public key against the registry
      * @returns {Promise<void>}
      */
@@ -465,21 +489,12 @@ class CoinjoinClient {
                 }
             }
 
-            if (this.web3.currentProvider.isMetaMask === true) {
-                this.web3.currentProvider.sendAsync(
-                    {
-                        method: "eth_signTypedData_v4",
-                        params: [sender, JSON.stringify(data)],
-                        from: sender,
-                    }, handleResult.bind(this));
-            } else {
-                this.web3.currentProvider.send({
-                    jsonrpc: '2.0',
-                    method: 'eth_signTypedData',
-                    params: [sender, data],
-                    id: new Date().getTime(),
+            this.web3.currentProvider.sendAsync(
+                {
+                    method: "eth_signTypedData_v4",
+                    params: [sender, JSON.stringify(data)],
+                    from: sender,
                 }, handleResult.bind(this));
-            }
         });
     }
 

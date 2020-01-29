@@ -1,3 +1,6 @@
+# NB: This version supports only Metamask and web3 providers implementing [EIP 712](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-712.md)
+
+
 # Enigma CoinJoin - Client Package
 
 This is a simply client library that wraps the business logic to be included in a frontend.
