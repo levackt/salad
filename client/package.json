@@ -1,6 +1,6 @@
 {
   "name": "@taariql/salad_client",
-  "version": "0.1.1a",
+  "version": "0.1.1-alpha.1",
   "private": false,
   "main": "src/index.js",
   "dependencies": {
