@@ -489,12 +489,21 @@ class CoinjoinClient {
                 }
             }
 
-            this.web3.currentProvider.sendAsync(
-                {
-                    method: "eth_signTypedData_v4",
-                    params: [sender, JSON.stringify(data)],
-                    from: sender,
+            if (this.web3.givenProvider.isMetaMask === true) {
+                this.web3.givenProvider.sendAsync(
+                    {
+                        method: "eth_signTypedData_v4",
+                        params: [sender, JSON.stringify(data)],
+                        from: sender,
+                    }, handleResult.bind(this));
+            } else {
+                this.web3.givenProvider.send({
+                    jsonrpc: '2.0',
+                    method: 'eth_signTypedData',
+                    params: [sender, data],
+                    id: new Date().getTime(),
                 }, handleResult.bind(this));
+            }
         });
     }
 
