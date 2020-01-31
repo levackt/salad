@@ -2,15 +2,13 @@ require('dotenv').config();
 const {startServer} = require('@salad/operator');
 const Web3 = require('web3');
 const debug = require('debug')('operator:server');
-const {Store} = require("@salad/operator");
+const {Store, configureWeb3Account} = require("@salad/operator");
 const {DEPOSITS_COLLECTION, DEALS_COLLECTION, CACHE_COLLECTION} = require('./store');
 const {mineUntilDeal} = require('@salad/operator/src/ganacheUtils');
 
-const args = process.argv;
-const provider = new Web3.providers.HttpProvider(`http://${process.env.ETH_HOST}:${process.env.ETH_PORT}`);
-let server;
-(async () => {
-    const operatorAccountIndex = 0;
+async function main() {
+    const args = process.argv;
+    const provider = new Web3.providers.HttpProvider(`http://${process.env.ETH_HOST}:${process.env.ETH_PORT}`);
     const store = new Store();
     await store.initAsync();
 
@@ -19,7 +17,9 @@ let server;
     const contractAddr = await store.fetchSmartContractAddr();
     const enigmaUrl = `http://${process.env.ENIGMA_HOST}:${process.env.ENIGMA_PORT}`;
     await store.closeAsync();
-    server = await startServer(provider, enigmaUrl, contractAddr, scAddr, threshold, operatorAccountIndex);
+    const web3 = new Web3(provider);
+    await configureWeb3Account(web3);
+    let server = await startServer(web3, enigmaUrl, contractAddr, scAddr, threshold);
 
     // -t: Truncate db - Truncate the Deposits, Deals and Cache collections
     if (args.indexOf('-t') !== -1) {
@@ -33,7 +33,6 @@ let server;
     // -i: Ignore deal interval - Mining blocks until new deal when the anonymity set is reached (Ganache only)
     if (args.indexOf('-i') !== -1) {
         debug('-i option provided, watching for quorum updates');
-        const web3 = new Web3(provider);
         server.onQuorumUpdate(async (action) => {
             debug('Quorum update', action);
             const {quorum} = action.payload;
@@ -48,4 +47,6 @@ let server;
     await server.loadEncryptionPubKeyAsync();
     // Watch blocks and update create deals when reaching thresholds
     await server.watchBlocksUntilDeal();
-})();
+}
+
+main().catch(err => { console.error(err); process.exit(1) });

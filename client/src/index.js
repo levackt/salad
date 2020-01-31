@@ -5,18 +5,22 @@ const {recoverTypedSignature_v4} = require('eth-sig-util');
 debug.enabled = true;
 
 const EventEmitter = require('events');
-const Web3 = require('web3');
 const forge = require('node-forge');
 const EthCrypto = require('eth-crypto');
 
 let utils;
+let Enigma;
 let isNode = false;
 if (typeof window === 'undefined') {
     isNode = true;
-    utils = require('enigma-js/node').utils;
+    let enigma = require('enigma-js/node');
+    utils = enigma.utils;
+    Enigma = enigma.Enigma;
     WebSocket = require('ws');
 } else {
-    utils = require('enigma-js').utils;
+    let enigma = require('enigma-js');
+    utils = enigma.utils;
+    Enigma = enigma.Enigma;
 }
 
 /**
@@ -35,17 +39,11 @@ if (typeof window === 'undefined') {
  */
 
 // TODO: Move path to config and reference Github
-const SaladContract = require('../build/smart_contracts/Salad.json');
-var EnigmaContract = null;
-if (typeof process.env.SGX_MODE !== 'undefined' && process.env.SGX_MODE == 'SW') {
-  EnigmaContract = require('../build/enigma_contracts/EnigmaSimulation');
-} else {
-  EnigmaContract = require('../build/enigma_contracts/Enigma');
-}
+const SaladContract = require('../../build/smart_contracts/Salad.json');
 
 class CoinjoinClient {
-    constructor(operatorUrl = 'ws://localhost:8080', provider = Web3.givenProvider) {
-        this.web3 = new Web3(provider);
+    constructor(operatorUrl = 'ws://localhost:8080', web3) {
+        this.web3 = web3;
         this.ws = new WebSocket(operatorUrl);
         this.isConnected = new Promise((resolve) => {
             const callback = () => {
@@ -67,7 +65,6 @@ class CoinjoinClient {
         // Initialized in the initAsync method after fetching the configuration
         this.pubKeyData = null;
         this.contract = null;
-        this.enigmaContract = null;
     }
 
     static obtainKeyPair() {
@@ -189,10 +186,22 @@ class CoinjoinClient {
         this.keyPair = CoinjoinClient.obtainKeyPair();
         await this.isConnected;
         this.accounts = await this.web3.eth.getAccounts();
-        const {saladAddr, enigmaAddr, pubKeyData} = await this.fetchConfigAsync();
+        const {saladAddr, enigmaAddr, enigmaTokenAddr, pubKeyData} = await this.fetchConfigAsync();
         this.pubKeyData = pubKeyData;
         this.contract = new this.web3.eth.Contract(SaladContract['abi'], saladAddr);
-        this.enigmaContract = new this.web3.eth.Contract(EnigmaContract['abi'], enigmaAddr);
+
+        this.enigma = new Enigma(
+            this.web3,
+            enigmaAddr,
+            enigmaTokenAddr,
+            null,  // We don't need to access the enigma network
+            {
+                gas: 4712388,
+                from: this.accounts[0],
+            },
+        );
+        this.enigma.admin();
+        this.enigma.setTaskKeyPair();
     }
 
     /**
@@ -319,7 +328,7 @@ class CoinjoinClient {
             throw new Error(`Invalid amount ${amount}`);
         }
         debug('Making deposit transaction data', amount);
-        
+
         let data = this.contract.methods.makeDeposit().encodeABI();
         return {
             from: sender,
@@ -336,7 +345,7 @@ class CoinjoinClient {
     async verifyPubKeyAsync() {
         debug('Verifying pub key data against on-chain receipt', this.pubKeyData);
         const {taskId, encryptedOutput} = this.pubKeyData;
-        const taskRecord = await this.enigmaContract.methods.getTaskRecord(taskId).call();
+        const taskRecord = await this.enigma.getTaskRecordFromTaskId(taskId);
         debug('The task record', taskRecord);
         const outputHash = this.web3.utils.soliditySha3({t: 'bytes', value: encryptedOutput});
         debug('The output hash', outputHash);
@@ -370,6 +379,8 @@ class CoinjoinClient {
         if (!this.pubKeyData) {
             throw new Error("Attribute pubKeyData not set. Please call initAsync");
         }
+        // This refers to the public key stored in the enclave, and retrieved in the `initAsync` method above.
+        // We do not fetch the public key directly from the operator because as users, we do not trust it.
         await this.verifyPubKeyAsync();
         const pubKey = this.getPlaintextPubKey();
         debug('Encrypting recipient', recipient, 'with pubKey', this.pubKeyData);
